@@ -4,7 +4,7 @@ from telebot import TeleBot, types
 from supabase import create_client, Client
 
 # Инициализация переменных окружения из секретов GitHub
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TOKEN = os.getenv("8995229149:AAFaZytfsq7EnxMSAaBG-dMsdj9PQEA3SNY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")  # Сюда передается service_role токен
 
