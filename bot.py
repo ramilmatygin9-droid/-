@@ -5,8 +5,8 @@ from supabase import create_client, Client
 
 # Инициализация переменных окружения из секретов GitHub
 TOKEN = os.getenv("8995229149:AAFaZytfsq7EnxMSAaBG-dMsdj9PQEA3SNY")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")  # Сюда передается service_role токен
+SUPABASE_URL = os.getenv("https://fuwhycsfqewpjkybdsor.supabase.co/rest/v1/")
+SUPABASE_KEY = os.getenv("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1d2h5Y3NmcWV3cGpreWJkc29yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTY3NDIsImV4cCI6MjA5NTk5Mjc0Mn0.G1LVIJi7tUYgvkz7b-oTQJSMT3WxEp0m8FRSblfH2-Y")  # Сюда передается service_role токен
 
 # Подключение к Supabase и Telegram
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
