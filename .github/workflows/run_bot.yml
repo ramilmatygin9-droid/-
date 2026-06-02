@@ -1,4 +1,4 @@
-name: Mines World Bot
+name: miner bot
 
 on:
   schedule:
