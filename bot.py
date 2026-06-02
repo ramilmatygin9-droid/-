@@ -4,7 +4,10 @@ import random
 from telebot import TeleBot, types
 from supabase import create_client, Client
 
-# Автоматически прописанные ключи вашей базы данных Supabase
+# Токен вашего Телеграм-бота dfgdfg
+TOKEN = "8640960821:AAGKGldJfCrGpc3v8DL9MTvE8BWVI_Pngqc"
+
+# Данные вашей базы Supabase
 SUPABASE_URL = "https://fuwhycsfqewpjkybdsoi.supabase.co"
 SUPABASE_KEY = (
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1d"
@@ -12,19 +15,11 @@ SUPABASE_KEY = (
     "yMCwiZXhwIjoyMDYzNzExMjIwfQ._M9h_0B_E1AAnbB1eS2vLgB9wY-6O6S7x5L0l_X3EwQ"
 )
 
-# Токен Телеграм-бота по-прежнему берется из безопасных настроек GitHub
-TOKEN = os.getenv("8995229149:AAFaZytfsq7EnxMSAaBG-dMsdj9PQEA3SNY")
-
-if not TOKEN:
-    print("❌ КРИТИЧЕСКАЯ ОШИБКА: Токен Telegram-бота не найден в Секретах GitHub!")
-    print("💡 Пожалуйста, добавьте секрет с именем TELEGRAM_BOT_TOKEN в настройки репозитория.")
-    sys.exit(1)
-
 try:
-    # Инициализация клиентов
+    # Инициализация клиентов напрямую без использования внешних секретов
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     bot = TeleBot(TOKEN)
-    print("✅ Успешное подключение к API Telegram и базе данных Supabase!")
+    print("✅ Успешное подключение к Telegram и Supabase!")
 except Exception as e:
     print(f"❌ Ошибка инициализации: {e}")
     sys.exit(1)
@@ -41,8 +36,8 @@ def get_player(user_id, username):
             return insert_response.data[0]
         return response.data[0]
     except Exception as e:
-        print(f"❌ Ошибка при работе с базой Supabase: {e}")
-        print("💡 Проверьте, создана ли таблица 'players' через SQL Editor в Supabase.")
+        print(f"❌ Ошибка базы данных: {e}")
+        print("💡 Не забудьте запустить SQL-скрипт создания таблицы в кабинете Supabase!")
         raise e
 
 def update_player_data(user_id, update_dict):
@@ -60,12 +55,12 @@ def start(message):
         get_player(message.from_user.id, message.from_user.username)
         bot.send_message(
             message.chat.id, 
-            "Добро пожаловать в Mines World! ⛏\n\nКопай шахту, добывай ценные руды, улучшай кирку и зарабатывай игровые деньги!", 
+            "Добро пожаловать в **Mines World**! ⛏\n\nКопай шахту, добывай ценные руды, улучшай кирку и зарабатывай игровые деньги!", 
             parse_mode="Markdown", 
             reply_markup=main_keyboard()
         )
     except Exception as e:
-        bot.send_message(message.chat.id, "⚠️ Ошибка базы данных при регистрации. Загляните в логи GitHub.")
+        bot.send_message(message.chat.id, "⚠️ Ошибка подключения к базе. Проверьте вкладку SQL Editor в Supabase.")
 
 @bot.message_handler(func=lambda message: True)
 def handle_menu(message):
@@ -102,7 +97,7 @@ def handle_menu(message):
             text = (
                 f"👤 Игрок: @{p['username']}\n"
                 f"💰 Баланс: **{float(p['money']):.2f} руб.**\n"
-[03.06.2026 2:10] 𐌐𐌀𐌌𐌉𐌋: f"🛠 Уровень кирки: **{p['pickaxe_lvl']}**\n\n"
+                f"🛠 Уровень кирки: **{p['pickaxe_lvl']}**\n\n"
                 f"🪨 Уголь: {p['coal']} шт.\n"
                 f"⛓ Железо: {p['iron']} шт.\n"
                 f"✨ Золото: {p['gold']} шт.\n"
@@ -117,7 +112,7 @@ def handle_menu(message):
             else:
                 new_money = float(p["money"]) + income
                 update_player_data(user_id, {"money": new_money, "coal": 0, "iron": 0, "gold": 0, "diamond": 0})
-                bot.send_message(message.chat.id, f"💰 Вся руда продана за {income} руб.!", parse_mode="Markdown")
+                bot.send_message(message.chat.id, f"💰 Вся руда продана за **{income} руб.**!", parse_mode="Markdown")
 
         elif message.text == "🏪 Магазин кирок":
             next_lvl = p["pickaxe_lvl"] + 1
@@ -125,15 +120,15 @@ def handle_menu(message):
             if float(p["money"]) >= cost:
                 new_money = float(p["money"]) - cost
                 update_player_data(user_id, {"money": new_money, "pickaxe_lvl": next_lvl})
-                bot.send_message(message.chat.id, f"🎉 Кирка успешно улучшена до {next_lvl} уровня!", parse_mode="Markdown")
+                bot.send_message(message.chat.id, f"🎉 Кирка успешно улучшена до **{next_lvl} уровня**!", parse_mode="Markdown")
             else:
                 bot.send_message(message.chat.id, f"🏪 Улучшение стоит **{cost} руб.**\nНе хватает средств.", parse_mode="Markdown")
     except Exception as e:
         print(f"❌ Ошибка при обработке сообщения: {e}")
 
-if name == "__main__":
-    print("🚀 Бот запущен и ожидает сообщений в Telegram...")
+if __name__ == "__main__":
+    print("🚀 Бот запущен локально через GitHub Actions и готов копать руду!")
     try:
         bot.infinity_polling()
     except Exception as e:
-        print(f"❌ Критический сбой цикла опроса: {e}")
+        print(f"❌ Ошибка пуллинга Telegram: {e}")
