@@ -4,30 +4,26 @@ import random
 from telebot import TeleBot, types
 from supabase import create_client, Client
 
-# Берем токен из Секретов GitHub репозитория (env-переменная)
+# Подтягиваем абсолютно все ключи из Secret Repository
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-# Данные твоей базы Supabase остаются здесь
-SUPABASE_URL = "https://fuwhycsfqewpjkybdsoi.supabase.co"
-SUPABASE_KEY = (
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1d"
-    "2h5Y3NmcWV3cGpreWJkc29pIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODEzNTI"
-    "yMCwiZXhwIjoyMDYzNzExMjIwfQ._M9h_0B_E1AAnbB1eS2vLgB9wY-6O6S7x5L0l_X3EwQ"
-)
-
-# Жесткая проверка, чтобы бот не молчал, если секрет не задан
-if not TOKEN:
-    print("❌ КРИТИЧЕСКАЯ ОШИБКА: TELEGRAM_BOT_TOKEN не найден в Secret Repository GitHub!")
-    print("💡 Иди в Settings -> Secrets and variables -> Actions и создай секрет TELEGRAM_BOT_TOKEN.")
+# Проверка, чтобы сразу поймать ошибку, если забыл какой-то секрет
+if not TOKEN or not SUPABASE_URL or not SUPABASE_KEY:
+    print("❌ КРИТИЧЕСКАЯ ОШИБКА: Не все переменные окружения найдены в Секретах GitHub!")
+    print(f"TELEGRAM_BOT_TOKEN: {'ОК' if TOKEN else 'ОТСУТСТВУЕТ'}")
+    print(f"SUPABASE_URL: {'ОК' if SUPABASE_URL else 'ОТСУТСТВУЕТ'}")
+    print(f"SUPABASE_KEY: {'ОК' if SUPABASE_KEY else 'ОТСУТСТВУЕТ'}")
     sys.exit(1)
 
 try:
-    # Инициализация клиентов
+    # Инициализация клиентов через переменные окружения
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     bot = TeleBot(TOKEN)
-    print("✅ Успешное подключение к Telegram через env и базе Supabase!")
+    print("✅ Успешное подключение! Все ключи успешно подтянуты из Secrets.")
 except Exception as e:
-    print(f"❌ Ошибка инициализации: {e}")
+    print(f"❌ Ошибка инициализации клиентов: {e}")
     sys.exit(1)
 
 def get_player(user_id, username):
@@ -42,7 +38,7 @@ def get_player(user_id, username):
             return insert_response.data[0]
         return response.data[0]
     except Exception as e:
-        print(f"❌ Ошибка базы данных: {e}")
+        print(f"❌ Ошибка при запросе к Supabase: {e}")
         raise e
 
 def update_player_data(user_id, update_dict):
@@ -65,7 +61,7 @@ def start(message):
             reply_markup=main_keyboard()
         )
     except Exception as e:
-        bot.send_message(message.chat.id, "⚠️ Ошибка подключения к базе. Проверь вкладку SQL Editor в Supabase.")
+        bot.send_message(message.chat.id, "⚠️ Ошибка подключения к базе данных. Проверь логи GitHub Actions.")
 
 @bot.message_handler(func=lambda message: True)
 def handle_menu(message):
@@ -132,8 +128,8 @@ def handle_menu(message):
         print(f"❌ Ошибка при обработке сообщения: {e}")
 
 if __name__ == "__main__":
-    print("🚀 Бот запущен через env и слушает сервера Telegram...")
+    print("🚀 Безопасный запуск бота выполнен. Ожидание команд в Telegram...")
     try:
         bot.infinity_polling()
     except Exception as e:
-        print(f"❌ Ошибка пуллинга: {e}")
+        print(f"❌ Сбой пуллинга: {e}")
