@@ -25,7 +25,7 @@ jobs:
 
     - name: Запуск бота
       env:
-        TELEGRAM_BOT_TOKEN: ${{  }}
+        TELEGRAM_BOT_TOKEN: ${{ 8640960821:AAGKGldJfCrGpc3v8DL9MTvE8BWVI_Pngqc }}
         SUPABASE_URL: ${{ https://fuwhycsfqewpjkybdsor.supabase.co/rest/v1/ }}
         SUPABASE_KEY: ${{ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1d2h5Y3NmcWV3cGpreWJkc29yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTY3NDIsImV4cCI6MjA5NTk5Mjc0Mn0.G1LVIJi7tUYgvkz7b-oTQJSMT3WxEp0m8FRSblfH2-Y }}
       run: python bot.py
