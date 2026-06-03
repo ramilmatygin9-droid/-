@@ -1,9 +1,9 @@
 name: Mines World Bot
 
 on:
-  workflow_dispatch: # Позволяет запускать бота вручную кнопкой Run workflow
+  workflow_dispatch:
   schedule:
-    - cron: '0 */3 * * *' # Автоматический перезапуск каждые 3 часа, чтобы обходить лимиты
+    - cron: '0 */3 * * *'
 
 jobs:
   run-bot:
@@ -16,7 +16,7 @@ jobs:
     - name: Настройка Python
       uses: actions/setup-python@v4
       with:
-        python-with: '3.10'
+        python-version: '3.10'
 
     - name: Установка библиотек
       run: |
@@ -26,4 +26,6 @@ jobs:
     - name: Запуск бота
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
       run: python bot.py
