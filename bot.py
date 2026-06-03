@@ -5,9 +5,9 @@ from telebot import TeleBot, types
 from supabase import create_client, Client
 
 # Подтягиваем абсолютно все ключи из Secret Repository
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+TOKEN = os.getenv("8640960821:AAGKGldJfCrGpc3v8DL9MTvE8BWVI_Pngqc")
+SUPABASE_URL = os.getenv("https://fuwhycsfqewpjkybdsor.supabase.com")
+SUPABASE_KEY = os.getenv("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1d2h5Y3NmcWV3cGpreWJkc29yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTY3NDIsImV4cCI6MjA5NTk5Mjc0Mn0.G1LVIJi7tUYgvkz7b-oTQJSMT3WxEp0m8FRSblfH2-Y")
 
 # Проверка, чтобы сразу поймать ошибку, если забыл какой-то секрет
 if not TOKEN or not SUPABASE_URL or not SUPABASE_KEY:
