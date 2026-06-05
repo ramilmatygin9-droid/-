@@ -3,77 +3,62 @@ import random
 from telebot import TeleBot, types
 from supabase import create_client
 
+# 1. Замени здесь на свои данные, если os.getenv не работает
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+URL = os.getenv("SUPABASE_URL")
+KEY = os.getenv("SUPABASE_KEY")
 
 bot = TeleBot(TOKEN)
-db = create_client(SUPABASE_URL, SUPABASE_KEY)
+db = create_client(URL, KEY)
 
+# Функция для создания кнопок
 def get_markup():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("💪 Тренировка", "⚔️ Арена")
-    markup.row("🐾 Статус", "🏆 Топ")
+    markup.add("💪 Тренировка", "⚔️ Арена", "🏆 Топ", "🐾 Статус")
     return markup
 
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.from_user.id
-    # Используем count, чтобы понять, есть ли уже юзер
-    existing = db.table("pets").select("user_id").eq("user_id", user_id).execute().data
-    if not existing:
-        db.table("pets").insert({
-            "user_id": user_id, 
-            "name": message.from_user.first_name, 
-            "str": 10, 
-            "gold": 100
-        }).execute()
-        bot.send_message(message.chat.id, "Добро пожаловать в Pet Arena!", reply_markup=get_markup())
-    else:
-        bot.send_message(message.chat.id, "Ты уже в игре!", reply_markup=get_markup())
+    # Проверка, есть ли юзер
+    check = db.table("pets").select("user_id").eq("user_id", user_id).execute().data
+    if not check:
+        db.table("pets").insert({"user_id": user_id, "name": message.from_user.first_name, "str": 10, "gold": 100}).execute()
+    bot.send_message(message.chat.id, "Добро пожаловать в Pet Arena!", reply_markup=get_markup())
 
-@bot.message_handler(func=lambda message: message.text == "🏆 Топ")
-def top_players(message):
-    data = db.table("pets").select("name, str").order("str", desc=True).limit(10).execute().data
-    if not data:
-        return bot.reply_to(message, "Рейтинг пуст.")
-    
-    res = "\n".join([f"{i+1}. {p['name']} — {p['str']} сил." for i, p in enumerate(data)])
-    bot.send_message(message.chat.id, f"🏆 <b>Топ бойцов:</b>\n\n{res}", parse_mode="HTML")
-
-@bot.message_handler(func=lambda message: message.text == "⚔️ Арена")
-def arena(message):
+@bot.message_handler(content_types=['text'])
+def main_handler(message):
+    text = message.text
     user_id = message.from_user.id
-    # Получаем себя
-    me = db.table("pets").select("*").eq("user_id", user_id).single().execute().data
-    
-    # Получаем противников (кроме себя)
-    enemies = db.table("pets").select("*").neq("user_id", user_id).execute().data
-    
-    if not enemies:
-        return bot.reply_to(message, "На арене пока пусто...")
-    
-    enemy = random.choice(enemies)
-    
-    if me['str'] >= enemy['str']:
-        # Исправлено: получаем, прибавляем, записываем
-        new_gold = me['gold'] + 50
-        db.table("pets").update({"gold": new_gold}).eq("user_id", user_id).execute()
-        bot.reply_to(message, f"⚔️ Победа над {enemy['name']}! +50 золота.")
-    else:
-        bot.reply_to(message, f"💀 Поражение от {enemy['name']}. Потренируйся еще!")
 
-@bot.message_handler(func=lambda message: message.text == "🐾 Статус")
-def status(message):
-    me = db.table("pets").select("*").eq("user_id", message.from_user.id).single().execute().data
-    text = f"🐾 <b>Ваш статус:</b>\n💪 Сила: {me['str']}\n💰 Золото: {me['gold']}"
-    bot.send_message(message.chat.id, text, parse_mode="HTML")
+    if text == "💪 Тренировка":
+        data = db.table("pets").select("str").eq("user_id", user_id).single().execute().data
+        db.table("pets").update({"str": data['str'] + 1}).eq("user_id", user_id).execute()
+        bot.reply_to(message, "Ты стал сильнее! +1 к силе.")
 
-@bot.message_handler(func=lambda message: message.text == "💪 Тренировка")
-def train(message):
-    # Увеличиваем силу на 1
-    me = db.table("pets").select("str").eq("user_id", message.from_user.id).single().execute().data
-    db.table("pets").update({"str": me['str'] + 1}).eq("user_id", message.from_user.id).execute()
-    bot.reply_to(message, "💪 Тренировка завершена! +1 к силе.")
+    elif text == "⚔️ Арена":
+        me = db.table("pets").select("name, str, gold").eq("user_id", user_id).single().execute().data
+        enemies = db.table("pets").select("name, str").neq("user_id", user_id).execute().data
+        
+        if not enemies:
+            return bot.reply_to(message, "На арене пусто.")
+        
+        enemy = random.choice(enemies)
+        if me['str'] >= enemy['str']:
+            db.table("pets").update({"gold": me['gold'] + 50}).eq("user_id", user_id).execute()
+            bot.reply_to(message, f"Победа над {enemy['name']}! +50 золота.")
+        else:
+            bot.reply_to(message, f"Ты проиграл {enemy['name']}.")
 
+    elif text == "🏆 Топ":
+        top = db.table("pets").select("name, str").order("str", desc=True).limit(5).execute().data
+        msg = "🏆 Топ бойцов:\n" + "\n".join([f"{i+1}. {p['name']} — {p['str']}" for i, p in enumerate(top)])
+        bot.send_message(message.chat.id, msg)
+
+    elif text == "🐾 Статус":
+        me = db.table("pets").select("*").eq("user_id", user_id).single().execute().data
+        bot.send_message(message.chat.id, f"Имя: {me['name']}\nСила: {me['str']}\nЗолото: {me['gold']}")
+
+# Запуск бота
+print("Бот запущен...")
 bot.infinity_polling()
