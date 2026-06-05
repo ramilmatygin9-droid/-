@@ -16,9 +16,9 @@ logging.basicConfig(level=logging.INFO)
 # =====================================================================
 # ⚙️ КОНФИГ ЧЕРЕЗ ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ (ENV)
 # =====================================================================
-       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-       SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 # =====================================================================
 
 # Инициализация бота и клиента Supabase
