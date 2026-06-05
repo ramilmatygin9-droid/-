@@ -17,8 +17,9 @@ logging.basicConfig(level=logging.INFO)
 # ⚙️ КОНФИГ ЧЕРЕЗ ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ (ENV)
 # =====================================================================
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+URL = os.getenv("SUPABASE_URL")
+KEY = os.getenv("SUPABASE_KEY")
+OWNER_ID = int(os.getenv("OWNER_ID", 0))
 # =====================================================================
 
 # Инициализация бота и клиента Supabase
@@ -61,7 +62,6 @@ SHOP_PICKS = {
 
 active_miners = set()
 
-# --- КЛАВИАТУРЫ ---
 def get_main_keyboard():
     kb = [
         [types.KeyboardButton(text="⛏ Шахта"), types.KeyboardButton(text="🛒 Магазин")],
@@ -71,12 +71,10 @@ def get_main_keyboard():
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
-# --- РАБОТА С СУПАРБЕЙЗ (SUPABASE) ---
 def get_player(user_id, username=None):
     res = db.table("players").select("*").eq("user_id", user_id).execute()
     
     if not res.data:
-        # Вот здесь строка была разорвана, теперь всё зафиксировано в одну линию
         new_player = {
             "user_id": user_id, "balance": 0, "pick_lvl": 1, "used_promos": "", 
             "username": username, "last_bonus": 0, "inventory": "1", "crystals": "{}", "has_drill": 0
@@ -85,8 +83,8 @@ def get_player(user_id, username=None):
         return {"balance": 0, "pick_lvl": 1, "used_promos": [], "last_bonus": 0, "inventory": [1], "crystals": {}, "username": username, "has_drill": 0}
     
     data = res.data[0]
-    
     crystals_raw = data.get("crystals", "{}")
+    
     if isinstance(crystals_raw, str):
         try:
             crystals_data = json.loads(crystals_raw) if crystals_raw else {}
@@ -104,7 +102,6 @@ def get_player(user_id, username=None):
         "username": data["username"], "has_drill": data["has_drill"]
     }
 
-# --- ФОНОВЫЙ ДОХОД (БУР) ---
 async def drill_income_task():
     while True:
         await asyncio.sleep(60)
@@ -115,7 +112,6 @@ async def drill_income_task():
         except Exception as e:
             logging.error(f"Ошибка бура: {e}")
 
-# --- ИГРОВОЙ ПРОЦЕСС ---
 @dp.message(Command("start"))
 async def main_start(message: types.Message):
     get_player(message.from_user.id, message.from_user.username)
