@@ -4,45 +4,52 @@ import random
 import string
 import requests
 from telebot import TeleBot, types
+from supabase import create_client, Client
 
-# --- БЕЗОПАСНАЯ ЗАГРУЗКА КЛЮЧЕЙ ---
+# --- КОНФИГУРАЦИЯ ---
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-if not TOKEN:
-    print("❌ ОШИБКА: Токен не найден в настройках GitHub!")
+if not all([TOKEN, SUPABASE_URL, SUPABASE_KEY]):
+    print("❌ ОШИБКА: Не все переменные окружения заданы!")
     sys.exit(1)
 
 bot = TeleBot(TOKEN)
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- ФУНКЦИИ ПОЧТЫ ---
-def generate_random_password(length=12):
-    return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
-
-def create_email_account():
+# --- ФУНКЦИИ ---
+def create_email():
     url = 'https://www.1secmail.com/api/v1/?action=genRandomMailbox&count=1'
     email = requests.get(url).json()[0]
-    return email, generate_random_password()
+    password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+    return email, password
 
-# --- КЛАВИАТУРА ---
-def main_keyboard():
+def get_markup():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row("⛏ Копать", "💼 Профиль")
     markup.row("📧 Создать почту")
     return markup
 
-# --- ОБРАБОТЧИК ---
+# --- ЛОГИКА БОТА ---
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.send_message(message.chat.id, "Привет! Нажми кнопку ниже, чтобы создать временную почту.", reply_markup=main_keyboard())
+    bot.send_message(message.chat.id, "Добро пожаловать в игру! Выбирай действие:", reply_markup=get_markup())
 
-@bot.message_handler(func=lambda message: message.text == "📧 Создать почту")
-def handle_mail(message):
-    email, password = create_email_account()
-    bot.send_message(
-        message.chat.id, 
-        f"✅ Почта создана:\n\n📧 `{email}`\n🔑 `{password}`", 
-        parse_mode="Markdown"
-    )
+@bot.message_handler(func=lambda message: True)
+def handle_msg(message):
+    user_id = message.from_user.id
+    
+    if message.text == "⛏ Копать":
+        res = random.randint(1, 10)
+        bot.reply_to(message, f"⛏ Ты накопал {res} единиц руды!")
+        
+    elif message.text == "💼 Профиль":
+        bot.send_message(message.chat.id, f"👤 Твой ID: {user_id}\n💼 Уровень: Новичок")
+        
+    elif message.text == "📧 Создать почту":
+        email, password = create_email()
+        bot.send_message(message.chat.id, f"✅ Почта создана:\n\n📧 `{email}`\n🔑 `{password}`", parse_mode="Markdown")
 
 if __name__ == "__main__":
-    print("🚀 Бот запущен!")
     bot.infinity_polling()
