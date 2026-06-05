@@ -19,7 +19,16 @@ logging.basicConfig(level=logging.INFO)
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 URL = os.getenv("SUPABASE_URL")
 KEY = os.getenv("SUPABASE_KEY")
-OWNER_ID = int(os.getenv("OWNER_ID", 0))
+
+# Защита от пустой строки в OWNER_ID (фиксит ошибку ValueError)
+raw_owner_id = os.getenv("OWNER_ID", "0")
+if not raw_owner_id or not raw_owner_id.strip():
+    OWNER_ID = 0
+else:
+    try:
+        OWNER_ID = int(raw_owner_id.strip())
+    except ValueError:
+        OWNER_ID = 0
 # =====================================================================
 
 # Инициализация бота и клиента Supabase
