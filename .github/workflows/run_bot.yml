@@ -1,4 +1,4 @@
-Name: Mines World Bot
+name: Mines World Bot
 
 on:
   workflow_dispatch:
