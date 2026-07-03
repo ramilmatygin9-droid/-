@@ -10,7 +10,7 @@ from aiogram.types import BotCommand, BotCommandScopeDefault
 logging.basicConfig(level=logging.INFO)
 
 # Токен берется из переменных окружения ОС или можешь вставить строкой: TOKEN = "ТВОЙ_ТОКЕН"
-TOKEN = os.getenv("8995229149:AAFaZytfsq7EnxMSAaBG-dMsdj9PQEA3SNY")
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
