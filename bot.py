@@ -1,7 +1,7 @@
-import random
-import telebot
+import os
+from dotenv import load_dotenv
 
-TOKEN = "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE"
+TOKEN = os.getenv("8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE")
 
 bot = telebot.TeleBot(TOKEN)
 
