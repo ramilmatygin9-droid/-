@@ -12,9 +12,9 @@ from aiogram.types import (
     Message,
 )
 
-# Настройки (токен берется из секретов GitHub)
-TOKEN = os.getenv("8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE") 
-ADMIN_ID = 8680515597  # Ваш Telegram ID для получения уведомлений о заказах
+# Настройки
+TOKEN = os.getenv("8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE")  # Токен берется из секретов GitHub
+ADMIN_ID = 8680515597  # Твой Telegram ID
 
 # Данные о товарах
 PRODUCTS = {
@@ -69,9 +69,11 @@ async def process_purchase(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Товар не найден!", show_alert=True)
         return
 
+    # Сохраняем выбранный товар в память сессии
     await state.update_data(item_name=product["name"], item_price=product["price"])
     await state.set_state(OrderState.waiting_for_payment_proof)
 
+    # Реквизиты для оплаты СБП / Карта
     payment_text = (
         f"🛒 Вы выбрали: **{product['name']}**\n"
         f"💰 Стоимость: **{product['price']} руб.**\n\n"
@@ -79,7 +81,7 @@ async def process_purchase(callback: CallbackQuery, state: FSMContext):
         f"• Банк: Сбер / Т-Банк\n"
         f"• Номер карты: `2200 7021 6141 6974`\n"
         f"• Номер телефона (СБП): `+7 (913) 517-65-93` (Получатель: Рамиль М.)\n\n"
-        f"⚠️ **Важно:** после оплаты отправьте в этот чат скриншот чека или текстовое подтверждение."
+        f"⚠️ **Важно:** после оплаты отправьте в этот чат скриншот чека или текстовое подтверждение, чтобы мы могли проверить платеж."
     )
 
     cancel_markup = InlineKeyboardMarkup(
@@ -105,6 +107,7 @@ async def receive_payment_proof(message: Message, state: FSMContext, bot: Bot):
     item_name = data.get("item_name")
     item_price = data.get("item_price")
 
+    # Формируем сообщение для администратора
     admin_text = (
         f"🚨 **Новый заказ!**\n\n"
         f"👤 Покупатель: @{message.from_user.username} (ID: `{message.from_user.id}`)\n"
@@ -113,6 +116,7 @@ async def receive_payment_proof(message: Message, state: FSMContext, bot: Bot):
         f"Проверьте поступление средств на карту/СБП!"
     )
 
+    # Пересылаем доказательство оплаты (чек/скриншот/текст) админу
     await bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
     await message.forward(ADMIN_ID)
 
@@ -126,7 +130,7 @@ async def receive_payment_proof(message: Message, state: FSMContext, bot: Bot):
 # Запуск бота
 async def main():
     if not TOKEN:
-        print("Ошибка: Токен бота не задан в переменных окружения!")
+        print("Ошибка: Токен бота не найден! Проверьте секреты в GitHub Actions.")
         return
 
     logging.basicConfig(level=logging.INFO)
