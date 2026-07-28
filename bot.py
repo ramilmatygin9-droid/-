@@ -13,7 +13,13 @@ from aiogram.types import (
     Message,
 )
 
+# 1. ТОКЕН ОСНОВНОГО БОТА (куда пишут клиенты)
 TOKEN = "8838249295:AAHnv2uA-EAsO7xNOT3YTtFcldURdIqQwe0"
+
+# 2. ТОКЕН ВТОРОГО БОТА (куда будут приходить чеки и уведомления об оплате)
+NOTIFY_BOT_TOKEN = "8904301984:AAGpW_6vhN_WdPv3urELREE7KUkDTwxOdZw"
+
+# Ваш Telegram ID (куда второй бот будет пересылать чеки)
 ADMIN_ID = 8680515597
 
 PRODUCTS = {
@@ -123,30 +129,28 @@ async def cancel_order(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.message(OrderState.waiting_for_payment_proof)
-async def receive_payment_proof(message: Message, state: FSMContext, bot: Bot):
+async def receive_payment_proof(message: Message, state: FSMContext):
     data = await state.get_data()
     item_name = data.get("item_name")
     item_price = data.get("item_price")
     user_id = message.from_user.id
+    username = message.from_user.username or "нет юзернейма"
 
     admin_text = (
         f"🚨 **Новый чек по заказу!**\n\n"
-        f"👤 Покупатель: @{message.from_user.username} (ID: `{user_id}`)\n"
+        f"👤 Покупатель: @{username} (ID: `{user_id}`)\n"
         f"📦 Товар: {item_name}\n"
         f"💵 Сумма: {item_price} руб."
     )
 
-    admin_markup = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="✅ Оплата прошла", callback_data=f"accept_{user_id}"),
-                InlineKeyboardButton(text="❌ Отклонить", callback_data=f"reject_{user_id}")
-            ]
-        ]
-    )
-
-    await bot.send_message(ADMIN_ID, admin_text, reply_markup=admin_markup, parse_mode="Markdown")
-    await message.forward(ADMIN_ID)
+    # Кнопки будут приходить во второй бот, но подтверждение идет через основной бот
+    # (или через вызов второго бота, если нужно)
+    notify_bot = Bot(token=NOTIFY_BOT_TOKEN)
+    try:
+        await notify_bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
+        await message.forward(ADMIN_ID) # Пересылка чека
+    finally:
+        await notify_bot.session.close()
 
     await message.answer(
         "✅ **Чек отправлен администратору!**\nОжидайте проверки, скоро с вами свяжутся.",
@@ -154,40 +158,6 @@ async def receive_payment_proof(message: Message, state: FSMContext, bot: Bot):
         parse_mode="Markdown"
     )
     await state.clear()
-
-@router.callback_query(F.data.startswith("accept_"))
-async def accept_payment(callback: CallbackQuery, bot: Bot):
-    if callback.from_user.id != ADMIN_ID:
-        await callback.answer("У вас нет прав!", show_alert=True)
-        return
-
-    target_user_id = int(callback.data.split("_")[1])
-
-    await bot.send_message(
-        target_user_id,
-        "🎉 **Оплата подтверждена администратором!**\nАдминистратор (@Z_L_0_l) скоро свяжется с вами для выдачи товара.",
-        parse_mode="Markdown"
-    )
-
-    await callback.message.edit_text(callback.message.text + "\n\n**STATUS: ✅ Оплата подтверждена**", parse_mode="Markdown")
-    await callback.answer("Оплата успешно подтверждена!")
-
-@router.callback_query(F.data.startswith("reject_"))
-async def reject_payment(callback: CallbackQuery, bot: Bot):
-    if callback.from_user.id != ADMIN_ID:
-        await callback.answer("У вас нет прав!", show_alert=True)
-        return
-
-    target_user_id = int(callback.data.split("_")[1])
-
-    await bot.send_message(
-        target_user_id,
-        "❌ **Оплата была отклонена администратором.**\nЕсли произошла ошибка, напишите @Z_L_0_l.",
-        parse_mode="Markdown"
-    )
-
-    await callback.message.edit_text(callback.message.text + "\n\n**STATUS: ❌ Оплата отклонена**", parse_mode="Markdown")
-    await callback.answer("Оплата отклонена.")
 
 async def main():
     logging.basicConfig(level=logging.INFO)
