@@ -13,7 +13,6 @@ from aiogram.types import (
     Message,
 )
 
-# Токен прописан напрямую для стабильного запуска
 TOKEN = "8838249295:AAHnv2uA-EAsO7xNOT3YTtFcldURdIqQwe0"
 ADMIN_ID = 8680515597
 
@@ -87,7 +86,8 @@ async def show_support(message: Message):
 
 @router.callback_query(F.data.startswith("buy_"))
 async def process_purchase(callback: CallbackQuery, state: FSMContext):
-    item_key = callback.data.split("_")[1]
+    # Безопасно извлекаем ключ товара (все, что идет после "buy_")
+    item_key = callback.data.replace("buy_", "", 1)
     product = PRODUCTS.get(item_key)
 
     if not product:
