@@ -13,7 +13,7 @@ from aiogram.types import (
 )
 
 # Настройки (токен берется из секретов GitHub)
-TOKEN = os.getenv("8838249295:AAFxtwEj2X9jlisTQlJeUIWgpnJM1OCuUWg") 
+TOKEN = os.getenv("8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE") 
 ADMIN_ID = 8680515597  # Ваш Telegram ID для получения уведомлений о заказах
 
 # Данные о товарах
