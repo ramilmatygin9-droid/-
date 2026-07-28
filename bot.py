@@ -1,202 +1,142 @@
 import asyncio
 import logging
-import sqlite3
-import time
-from aiogram import Bot, Dispatcher, F
+from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
 
-# Включаем логирование
-logging.basicConfig(level=logging.INFO)
+# Настройки
+TOKEN = "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE"  # Токен вашего основного бота-магазина
+ADMIN_ID = 8680515597  # Ваш Telegram ID для получения уведомлений о заказах
 
-# Ваш токен бота
-TOKEN = "8838249295:AAFxtwEj2X9jlisTQlJeUIWgpnJM1OCuUWg"
+# Данные о товарах
+PRODUCTS = {
+    "item_1": {
+        "name": "Эксклюзивная тойота",
+        "price": 12,
+        "desc": "Навсегда.",
+    },
+    "item_2": {
+        "name": "Ford F650)",
+        "price": 21,
+        "desc": "Навсегда.",
+    },
+}
 
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
-
-# Инициализация базы данных SQLite
-def init_db():
-    conn = sqlite3.connect("heel_game.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS heels (
-            user_id INTEGER PRIMARY KEY,
-            username TEXT,
-            size REAL DEFAULT 1.0,
-            moisture INTEGER DEFAULT 100,
-            tickles INTEGER DEFAULT 100,
-            created_at REAL,
-            last_watered REAL,
-            stage TEXT DEFAULT '🦶 Маленькая пятка'
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-init_db()
-
-# Получение или создание пятки для пользователя
-def get_or_create_heel(user_id, username):
-    conn = sqlite3.connect("heel_game.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT size, moisture, tickles, created_at, last_watered, stage FROM heels WHERE user_id = ?", (user_id,))
-    heel = cursor.fetchone()
-    
-    current_time = time.time()
-    
-    if not heel:
-        cursor.execute(
-            "INSERT INTO heels (user_id, username, created_at, last_watered) VALUES (?, ?, ?, ?)",
-            (user_id, username, current_time, current_time)
-        )
-        conn.commit()
-        heel = (1.0, 100, 100, current_time, current_time, '🦶 Маленькая пятка')
-    
-    conn.close()
-    return heel
-
-# Обновление состояния пятки (рост за 24 часа)
-def update_heel_status(user_id):
-    conn = sqlite3.connect("heel_game.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT size, moisture, tickles, created_at, last_watered, stage FROM heels WHERE user_id = ?", (user_id,))
-    heel = cursor.fetchone()
-    if not heel:
-        conn.close()
-        return None
-        
-    size, moisture, tickles, created_at, last_watered, stage = heel
-    current_time = time.time()
-    
-    # Прошло времени с создания (в часах)
-    elapsed_hours = (current_time - created_at) / 3600
-    
-    # Влажность и щекотка падают со временем
-    hours_since_watered = (current_time - last_watered) / 3600
-    new_moisture = max(0, int(100 - (hours_since_watered * 12)))
-    new_tickles = max(0, int(100 - (hours_since_watered * 10)))
-    
-    # Рост размера и стадии за 24 часа
-    # Базовый размер растет до 45 см за сутки
-    current_size = min(45.0, round(1.0 + (elapsed_hours * 1.83), 1))
-    
-    if elapsed_hours >= 24:
-        new_stage = "🦖 Легендарная ГОТИЧЕСКАЯ ПЯТКА-ГОДЗИЛЛА (Выросла!)"
-    elif elapsed_hours >= 16:
-        new_stage = "🦿 Огромная пятка-батут"
-    elif elapsed_hours >= 8:
-        new_stage = "👣 Солидная пяточка"
-    else:
-        new_stage = "🦶 Обычная пятка"
-        
-    cursor.execute(
-        "UPDATE heels SET size = ?, moisture = ?, tickles = ?, stage = ? WHERE user_id = ?",
-        (current_size, new_moisture, new_tickles, new_stage, user_id)
-    )
-    conn.commit()
-    
-    cursor.execute("SELECT size, moisture, tickles, created_at, last_watered, stage FROM heels WHERE user_id = ?", (user_id,))
-    updated_heel = cursor.fetchone()
-    conn.close()
-    return updated_heel
+# Состояния для оформления заказа
+class OrderState(StatesGroup):
+    waiting_for_payment_proof = State()
 
 
-@dp.message(Command("start"))
+router = Router()
+
+# Главное меню / Каталог товаров
+@router.message(Command("start"))
 async def cmd_start(message: Message):
+    keyboard_buttons = []
+    for key, product in PRODUCTS.items():
+        keyboard_buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{product['name']} — {product['price']} руб.",
+                    callback_data=f"buy_{key}",
+                )
+            ]
+        )
+
+    markup = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+
     await message.answer(
-        "🦶 **Добро пожаловать в игру «Вырасти Пятку»!**\n\n"
-        "Ваша цель — вырастить гигантскую человеческую пятку за **24 часа**!\n\n"
-        "📜 **Как играть:**\n"
-        "👣 `/heel` — посмотреть размер и состояние своей пятки\n"
-        "💧 Напишите в чат **«полить»** — увлажнить пятку (чтобы не сохла)\n"
-        "🖐 Напишите в чат **«пощекотать»** — поднять настроение пятке\n"
-        "🏆 `/topheel` — топ самых гигантских пяток сервера"
+        "👋 **Добро пожаловать в магазин цифровых товаров!**\n\n"
+        "Выберите интересующий вас товар из списка ниже:",
+        reply_markup=markup,
+        parse_mode="Markdown",
     )
 
+# Обработка выбора товара
+@router.callback_query(F.data.startswith("buy_"))
+async def process_purchase(callback: CallbackQuery, state: FSMContext):
+    item_key = callback.data.split("_")[1]
+    product = PRODUCTS.get(item_key)
 
-@dp.message(Command("heel"))
-async def cmd_heel(message: Message):
-    user_id = message.from_user.id
-    username = message.from_user.first_name or "Игрок"
-    get_or_create_heel(user_id, username)
-    
-    heel = update_heel_status(user_id)
-    size, moisture, tickles, created_at, last_watered, stage = heel
-    
-    elapsed_hours = (time.time() - created_at) / 3600
-    left_hours = max(0.0, 24 - elapsed_hours)
-    
-    await message.answer(
-        f"📋 **Пятка игрока {username}**\n\n"
-        f"Стадия: **{stage}**\n"
-        f"📏 Размер: **{size} см**\n"
-        f"💧 Влажность кожи: `{moisture}/100`\n"
-        f"🤭 Веселье (щекотка): `{tickles}/100`\n"
-        f"⏳ До пика эволюции: **{left_hours:.1f} ч.**\n\n"
-        "💬 *Напишите в чат «полить» или «пощекотать», чтобы ухаживать за пяткой!*"
-    )
-
-
-# Увлажнение по слову "полить"
-@dp.message(F.text.lower() == "полить")
-async def water_heel(message: Message):
-    user_id = message.from_user.id
-    username = message.from_user.first_name or "Игрок"
-    get_or_create_heel(user_id, username)
-    
-    conn = sqlite3.connect("heel_game.db")
-    cursor = conn.cursor()
-    cursor.execute("UPDATE heels SET moisture = 100, last_watered = ? WHERE user_id = ?", (time.time(), user_id))
-    conn.commit()
-    conn.close()
-    
-    await message.answer(f"💧 {username}, вы щедро полили пятку водичкой! Влажность кожи восстановлена до 100%.")
-
-
-# Щекотка по слову "пощекотать"
-@dp.message(F.text.lower() == "пощекотать")
-async def tickle_heel(message: Message):
-    user_id = message.from_user.id
-    username = message.from_user.first_name or "Игрок"
-    get_or_create_heel(user_id, username)
-    
-    conn = sqlite3.connect("heel_game.db")
-    cursor = conn.cursor()
-    cursor.execute("UPDATE heels SET tickles = 100 WHERE user_id = ?", (user_id,))
-    conn.commit()
-    conn.close()
-    
-    await message.answer(f"🤭 {username}, вы пощекотали пятку! Она хихикает, уровень веселья на максимуме (100%).")
-
-
-@dp.message(Command("topheel"))
-async def cmd_topheel(message: Message):
-    conn = sqlite3.connect("heel_game.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT username, stage, size FROM heels ORDER BY size DESC LIMIT 10")
-    top_players = cursor.fetchall()
-    conn.close()
-    
-    if not top_players:
-        await message.answer("🏆 Таблица лидеров пока пуста.")
+    if not product:
+        await callback.answer("Товар не найден!", show_alert=True)
         return
-        
-    text = "🏆 **Топ-10 Самых Огромных Пяток:**\n\n"
-    for i, (uname, stage, size) in enumerate(top_players, 1):
-        text += f"{i}. **{uname}** — {size} см ({stage})\n"
-        
-    await message.answer(text)
 
+    # Сохраняем выбранный товар в память сессии
+    await state.update_data(item_name=product["name"], item_price=product["price"])
+    await state.set_state(OrderState.waiting_for_payment_proof)
 
+    # Реквизиты для оплаты СБП / Карта
+    payment_text = (
+        f"🛒 Вы выбрали: **{product['name']}**\n"
+        f"💰 Стоимость: **{product['price']} руб.**\n\n"
+        f"💳 **Способ оплаты (СБП / Перевод на карту):**\n"
+        f"• Банк: Сбер / Т-Банк\n"
+        f"• Номер карты: `2200 7021 6141 6974`\n"
+        f"• Номер телефона (СБП): `+7 (913) 517-65-93` (Получатель: Рамиль М.)\n\n"
+        f"⚠️ **Важно:** после оплаты отправьте в этот чат скриншот чека или текстовое подтверждение (например, последние 4 цифры карты или время перевода), чтобы мы могли проверить платеж."
+    )
+
+    cancel_markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="❌ Отменить", callback_data="cancel_order")]
+        ]
+    )
+
+    await callback.message.edit_text(payment_text, reply_markup=cancel_markup, parse_mode="Markdown")
+    await callback.answer()
+
+# Отмена заказа
+@router.callback_query(F.data == "cancel_order")
+async def cancel_order(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text("❌ Заказ отменен. Введите /start для возврата в каталог.")
+    await callback.answer()
+
+# Получение подтверждения оплаты от пользователя
+@router.message(OrderState.waiting_for_payment_proof)
+async def receive_payment_proof(message: Message, state: FSMContext, bot: Bot):
+    data = await state.get_data()
+    item_name = data.get("item_name")
+    item_price = data.get("item_price")
+
+    # Формируем сообщение для администратора
+    admin_text = (
+        f"🚨 **Новый заказ!**\n\n"
+        f"👤 Покупатель: @{message.from_user.username} (ID: `{message.from_user.id}`)\n"
+        f"📦 Товар: {item_name}\n"
+        f"💵 Сумма: {item_price} руб.\n\n"
+        f"Проверьте поступление средств на карту/СБП!"
+    )
+
+    # Пересылаем доказательство оплаты (чек/скриншот/текст) админу
+    await bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
+    await message.forward(ADMIN_ID)
+
+    await message.answer(
+        "✅ **Спасибо!** Ваш платеж проверяется администратором.\n"
+        "Как только оплата поступит, товар будет отправлен вам в этот чат.",
+        parse_mode="Markdown",
+    )
+    await state.clear()
+
+# Запуск бота
 async def main():
-    print("Игровой бот 'Вырасти пятку' запущен!")
+    logging.basicConfig(level=logging.INFO)
+    bot = Bot(token=TOKEN)
+    dp = Dispatcher()
+    dp.include_router(router)
+
     await bot.delete_webhook(drop_pending_updates=True)
+    print("Бот успешно запущен!")
     await dp.start_polling(bot)
 
-
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("Бот остановлен.")
+    asyncio.run(main())
