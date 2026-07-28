@@ -8,82 +8,105 @@ from aiogram.types import Message
 # Включаем логирование
 logging.basicConfig(level=logging.INFO)
 
-# Укажите ваш токен, полученный от @BotFather
-TOKEN = "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE"
+# Ваш токен бота
+TOKEN = "8838249295:AAFxtwEj2X9jlisTQlJeUIWgpnJM1OCuUWg"
 
-# Инициализируем бота и диспетчер
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Словарь для хранения загаданных чисел игроков: {user_id: target_number}
-user_games = {}
+# Словарь для хранения балансов пользователей (стартовый баланс 1000 очков)
+user_balances = {}
 
 
-# Хэндлер на команду /start
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
+    user_id = message.from_user.id
+    if user_id not in user_balances:
+        user_balances[user_id] = 1000
+
     await message.answer(
-        "🎮 Привет! Добро пожаловать в игру **«Угадай число»**!\n\n"
-        "Я загадал число от **1 до 100**. Попробуй угадать его!\n"
-        "Просто отправь мне число в чат.\n\n"
-        "Если захочешь начать новую игру, отправь /game"
+        "🃏 **Добро пожаловать в игру ДЖОКЕР!**\n\n"
+        "Правила просты: испытайте удачу и попытайте поймать Джокера.\n"
+        "🔹 Напишите в чат: **джокер [сумма]** (например: `джокер 100`)\n\n"
+        f"💰 Ваш текущий баланс: **{user_balances[user_id]} очков**\n"
+        "Команда /balance — проверить баланс."
     )
 
 
-# Хэндлер на команду /game (начало/перезапуск игры)
-@dp.message(Command("game"))
-async def cmd_game(message: Message):
+@dp.message(Command("balance"))
+async def cmd_balance(message: Message):
     user_id = message.from_user.id
-    # Загадываем новое число для пользователя
-    user_games[user_id] = random.randint(1, 100)
-
-    await message.answer(
-        "🎲 Я загадал новое число от 1 до 100. Жду твой вариант!"
-    )
+    balance = user_balances.get(user_id, 1000)
+    user_balances[user_id] = balance
+    await message.answer(f"💰 Ваш баланс: **{balance} очков**")
 
 
-# Логика обработки ответов (угадывание числа)
-@dp.message(F.text)
-async def check_number(message: Message):
+# Обработка текстовых ставок вида "джокер 100"
+@dp.message(F.text.lower().startswith("джокер"))
+async def play_joker(message: Message):
     user_id = message.from_user.id
 
-    # Проверяем, играет ли пользователь (есть ли у него загаданное число)
-    if user_id not in user_games:
-        # Если игра не начиналась, автоматически запускаем её
-        user_games[user_id] = random.randint(1, 100)
+    if user_id not in user_balances:
+        user_balances[user_id] = 1000
+
+    parts = message.text.split()
+
+    if len(parts) < 2 or not parts[1].isdigit():
         await message.answer(
-            "⚠️ Ты еще не начал игру, но я уже загадал число от 1 до 100! Попробуй угадать:"
+            "⚠️ Пожалуйста, укажите сумму ставки правильно.\n"
+            "Пример: `джокер 100`"
         )
         return
 
-    # Проверяем, является ли введенный текст числом
-    if not message.text.isdigit():
+    bet = int(parts[1])
+    balance = user_balances[user_id]
+
+    if bet <= 0:
+        await message.answer("❌ Ставка должна быть больше нуля!")
+        return
+
+    if bet > balance:
         await message.answer(
-            "❌ Пожалуйста, введи **целое число** от 1 до 100."
+            f"❌ У вас недостаточно очков! Ваш баланс: **{balance}**"
         )
         return
 
-    guess = int(message.text)
-    target = user_games[user_id]
+    # Списываем ставку на время розыгрыша
+    user_balances[user_id] -= bet
 
-    # Сравниваем число пользователя с загаданным
-    if guess < target:
-        await message.answer("📈 Мое число **больше**! Попробуй еще раз.")
-    elif guess > target:
-        await message.answer("📉 Мое число **меньше**! Попробуй еще раз.")
+    # Шансы: 10% — Джокер (х10), 40% — Победа (х2), 50% — Проигрыш
+    outcome = random.choices(
+        ["joker", "win", "lose"], 
+        weights=[10, 40, 50], 
+        k=1
+    )[0]
+
+    if outcome == "joker":
+        win_amount = bet * 10
+        user_balances[user_id] += win_amount
+        await message.answer(
+            f"🃏✨ **ДЖОКЕР! ДЖОКЕР! ДЖОКЕР!** ✨🃏\n"
+            f"Невероятная удача! Вы сорвали куш!\n"
+            f"🎉 Вы выиграли: **+{win_amount} очков**!\n"
+            f"💰 Баланс: {user_balances[user_id]} очков"
+        )
+    elif outcome == "win":
+        win_amount = bet * 2
+        user_balances[user_id] += win_amount
+        await message.answer(
+            f"🎴 Выпала старшая карта.\n"
+            f"👍 Вы выиграли х2: **+{win_amount} очков**.\n"
+            f"💰 Баланс: {user_balances[user_id]} очков"
+        )
     else:
-        # Пользователь угадал!
         await message.answer(
-            f"🎉 Поздравляю! Ты угадал число **{target}**!\n\n"
-            "Хочешь сыграть еще? Просто отправь /game"
+            f"❌ К сожалению, выпала пустая карта. Вы проиграли ставку ({bet}).\n"
+            f"💰 Баланс: {user_balances[user_id]} очков"
         )
-        # Сбрасываем игру, чтобы загадать новое число на следующий раз
-        del user_games[user_id]
 
 
-# Главная функция запуска
 async def main():
-    print("Игровой бот запущен...")
+    print("Бот 'Джокер' запущен!")
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
