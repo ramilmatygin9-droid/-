@@ -1,158 +1,122 @@
-import telebot
+import asyncio
+import logging
 import random
-import json
-import time
-from telebot import types
+from aiogram import Bot, Dispatcher, F
+from aiogram.filters import Command
+from aiogram.types import Message
 
+# Включаем логирование
+logging.basicConfig(level=logging.INFO)
+
+# Укажите ваш токен от BotFather
 TOKEN = "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE"
 
-bot = telebot.TeleBot(TOKEN)
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
 
-try:
-    with open("players.json", "r") as f:
-        players = json.load(f)
-except:
-    players = {}
+# Баланс пользователей (для примера у всех стартовый баланс 1000 очков)
+user_balances = {}
 
 
-def save():
-    with open("players.json", "w") as f:
-        json.dump(players, f, indent=4)
+@dp.message(Command("start"))
+async def cmd_start(message: Message):
+    user_id = message.from_user.id
+    if user_id not in user_balances:
+        user_balances[user_id] = 1000  # Стартовый капитал
 
-
-def get_player(user):
-    uid = str(user.id)
-
-    if uid not in players:
-        players[uid] = {
-            "name": user.first_name,
-            "coins": 0,
-            "level": 1,
-            "xp": 0,
-            "last_bonus": 0
-        }
-        save()
-
-    return players[uid]
-
-
-@bot.message_handler(commands=["start"])
-def start(message):
-
-    get_player(message.from_user)
-
-    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
-
-    kb.add(
-        types.KeyboardButton("🎮 Играть"),
-        types.KeyboardButton("👤 Профиль")
-    )
-
-    kb.add(
-        types.KeyboardButton("🎁 Бонус"),
-        types.KeyboardButton("🏆 Топ")
-    )
-
-    bot.send_message(
-        message.chat.id,
-        "🔥 Добро пожаловать в игру!\n\nЗарабатывай монеты и прокачивай уровень!",
-        reply_markup=kb
+    await message.answer(
+        "🃏 **Добро пожаловать в игру ДЖОКЕР!**\n\n"
+        "Правила просты: испытайте удачу и попытайте поймать Джокера.\n"
+        "🔹 Напишите в чат: **джокер [сумма]** (например: `джокер 100`)\n\n"
+        f"💰 Ваш текущий баланс: **{user_balances[user_id]} очков**\n"
+        "Команда /balance — проверить баланс."
     )
 
 
-@bot.message_handler(func=lambda m: m.text=="🎮 Играть")
-def game(message):
-
-    p = get_player(message.from_user)
-
-    coins = random.randint(10,50)
-    xp = random.randint(5,20)
-
-    p["coins"] += coins
-    p["xp"] += xp
+@dp.message(Command("balance"))
+async def cmd_balance(message: Message):
+    user_id = message.from_user.id
+    balance = user_balances.get(user_id, 1000)
+    user_balances[user_id] = balance
+    await message.answer(f"💰 Ваш баланс: **{balance} очков**")
 
 
-    if p["xp"] >= p["level"]*100:
-        p["level"] += 1
-        p["xp"] = 0
-        bot.send_message(
-            message.chat.id,
-            f"🎉 Новый уровень! Теперь уровень {p['level']}"
-        )
+# Обработка текстовых ставок вида "джокер 100"
+@dp.message(F.text.lower().startswith("джокер"))
+async def play_joker(message: Message):
+    user_id = message.from_user.id
 
-    save()
+    if user_id not in user_balances:
+        user_balances[user_id] = 1000
 
-    bot.send_message(
-        message.chat.id,
-        f"⚔️ Ты сыграл!\n\n+{coins} монет\n+{xp} опыта"
-    )
+    parts = message.text.split()
 
-
-@bot.message_handler(func=lambda m: m.text=="👤 Профиль")
-def profile(message):
-
-    p = get_player(message.from_user)
-
-    bot.send_message(
-        message.chat.id,
-        f"""
-👤 Профиль
-
-Игрок: {p['name']}
-💰 Монеты: {p['coins']}
-⭐ Уровень: {p['level']}
-✨ Опыт: {p['xp']}
-"""
-    )
-
-
-@bot.message_handler(func=lambda m: m.text=="🎁 Бонус")
-def bonus(message):
-
-    p = get_player(message.from_user)
-
-    now = time.time()
-
-    if now - p["last_bonus"] < 86400:
-        bot.send_message(
-            message.chat.id,
-            "⏳ Бонус уже получен. Приходи завтра!"
+    # Проверяем, передал ли пользователь сумму ставки
+    if len(parts) < 2 or not parts[1].isdigit():
+        await message.answer(
+            "⚠️ Пожалуйста, укажите сумму ставки правильно.\n"
+            "Пример: `джокер 100`"
         )
         return
 
-    reward = 500
+    bet = int(parts[1])
+    balance = user_balances[user_id]
 
-    p["coins"] += reward
-    p["last_bonus"] = now
+    if bet <= 0:
+        await message.answer("❌ Ставка должна быть больше нуля!")
+        return
 
-    save()
+    if bet > balance:
+        await message.answer(
+            f"❌ У вас недостаточно очков! Ваш баланс: **{balance}**"
+        )
+        return
 
-    bot.send_message(
-        message.chat.id,
-        f"🎁 Ты получил {reward} монет!"
-    )
+    # Списываем ставку на время розыгрыша
+    user_balances[user_id] -= bet
+
+    # Игровая механика: генерируем случайный исход
+    # Шансы: 
+    # 10% — Джокер (х10 выигрыш)
+    # 40% — Обычная карта (возврат ставки х1)
+    # 50% — Мимо (проигрыш ставки)
+    outcome = random.choices(
+        ["joker", "win", "lose"], 
+        weights=[10, 40, 50], 
+        k=1
+    )[0]
+
+    if outcome == "joker":
+        win_amount = bet * 10
+        user_balances[user_id] += win_amount
+        await message.answer(
+            f"🃏✨ **ДЖОКЕР! ДЖОКЕР! ДЖОКЕР!** ✨🃏\n"
+            f"Невероятная удача! Вы сорвали куш!\n"
+            f"🎉 Вы выиграли: **+{win_amount} очков**!\n"
+            f"💰 Баланс: {user_balances[user_id]} очков"
+        )
+    elif outcome == "win":
+        win_amount = bet * 2
+        user_balances[user_id] += win_amount
+        await message.answer(f"🎴 Выпала старшая карта.\n"
+            f"👍 Вы выиграли х2: **+{win_amount} очков**.\n"
+            f"💰 Баланс: {user_balances[user_id]} очков"
+        )
+    else:
+        await message.answer(
+            f"❌ К сожалению, выпала пустая карта. Вы проиграли ставку ({bet}).\n"
+            f"💰 Баланс: {user_balances[user_id]} очков"
+        )
 
 
-@bot.message_handler(func=lambda m: m.text=="🏆 Топ")
-def top(message):
-
-    result = sorted(
-        players.values(),
-        key=lambda x:x["coins"],
-        reverse=True
-    )[:10]
+async def main():
+    print("Бот 'Джокер' запущен!")
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(bot)
 
 
-    text="🏆 ТОП ИГРОКОВ\n\n"
-
-    for i,p in enumerate(result,1):
-        text += f"{i}. {p['name']} — {p['coins']} 💰\n"
-
-
-    bot.send_message(
-        message.chat.id,
-        text
-    )
-
-
-bot.infinity_polling()
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Бот остановлен.")
