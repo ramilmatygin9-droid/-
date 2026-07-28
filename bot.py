@@ -15,7 +15,7 @@ from aiogram.types import (
 )
 
 # Токен и ID администратора
-TOKEN = os.getenv("8904301984:AAGKphuEFPU75KGhGWZ-XcNOp9RqCt_wnqY", "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE")
+TOKEN = os.getenv("8904301984:AAFJb5NLkqTdzf1LtzTJ6kCD09khnbyAxCs", "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE")
 ADMIN_ID = 8680515597
 
 # Список товаров
