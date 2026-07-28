@@ -33,6 +33,14 @@ PRODUCTS = {
         "price": 21,
         "desc": "Огромный пикап, эксклюзивный цвет.",
     },
+        "item_3": {
+        "name": "50кк денег",
+        "price": 10,
+    },
+        "item_4": {
+        "name": "40кк денег",
+        "price": 6,
+    },
 }
 
 class OrderState(StatesGroup):
