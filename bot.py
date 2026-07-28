@@ -1,64 +1,106 @@
-import os
-import asyncio
-import logging
-from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import Command
-from aiogram.types import BotCommand, BotCommandScopeDefault
+import telebot
+import random
 
-logging.basicConfig(level=logging.INFO)
+TOKEN = "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE"
 
-TOKEN = os.getenv("8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE")
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
+bot = telebot.TeleBot(TOKEN)
 
-# --- НАСТРОЙКА ---
-# Замени этот ноль на свой настоящий цифровой ID (например, 123456789)
-MY_TELEGRAM_ID = 8462392581 
-# ------------------
+players = {}
 
-REPLY_TEXT = "**Привет! Я сейчас занят либо меня сбил камаз 🚛 Мой актуальный юзернейм: @Z_L_0_l**"
+def get_player(user):
+    if user.id not in players:
+        players[user.id] = {
+            "name": user.first_name,
+            "foot": 0,
+            "ref": random.randint(100000,999999)
+        }
+    return players[user.id]
 
-def get_main_keyboard():
-    kb = [
-        [types.KeyboardButton(text="ПОШЕЛ НАХУЙ")]
-    ]
-    return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+@bot.message_handler(commands=["start"])
+def start(message):
+    p = get_player(message.from_user)
+    bot.reply_to(
+        message,
+        f"""👋 Привет!
 
-# Ответ на команду /start
-@dp.message(Command("start"))
-async def start_cmd(message: types.Message):
-    # Выводим ID в консоль, чтобы ты мог его узнать при первом запуске
-    print(f"Сообщение от пользователя с ID: {message.from_user.id}")
-    
-    # Если написал ТЫ — бот ничего не делает и завершает работу функции
-    if message.from_user.id == MY_TELEGRAM_ID:
-        return 
-        
-    await message.answer(
-        REPLY_TEXT,
-        reply_markup=get_main_keyboard(),
-        parse_mode="Markdown"
+🌱 Выращивай пятку и соревнуйся с друзьями!
+
+Команды:
+/grow
+/foot
+/kiss @username
+/slap @username
+/steal @username
+/ref
+/top"""
     )
 
-# Ответ на нажатие кнопки или любое другое текстовое сообщение
-@dp.message(F.text)
-async def all_msg(message: types.Message):
-    print(f"Сообщение от пользователя с ID: {message.from_user.id}")
-    
-    # Если написал ТЫ — бот молчит
-    if message.from_user.id == MY_TELEGRAM_ID:
-        return 
+@bot.message_handler(commands=["grow"])
+def grow(message):
+    p = get_player(message.from_user)
+    p["foot"] += 5
+    bot.reply_to(message, f"🌱 Ты вырастил пятку!\nТеперь она {p['foot']}%")
 
-    await message.answer(
-        REPLY_TEXT,
-        reply_markup=get_main_keyboard(),
-        parse_mode="Markdown"
+@bot.message_handler(commands=["foot"])
+def foot(message):
+    p = get_player(message.from_user)
+    bot.reply_to(message, f"👣 Размер пятки: {p['foot']}%")
+
+@bot.message_handler(commands=["kiss"])
+def kiss(message):
+    if len(message.text.split()) < 2:
+        bot.reply_to(message, "Использование: /kiss @username")
+        return
+
+    bot.reply_to(
+        message,
+        f"💋 {message.from_user.first_name} поцеловал пятку {message.text.split()[1]} ❤️"
     )
-    
-async def main():
-    await bot.set_my_commands([BotCommand(command="/start", description="Запуск")], scope=BotCommandScopeDefault())
-    print("🤖 Бот про КАМАЗ запущен и готов к работе!")
-    await dp.start_polling(bot)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+@bot.message_handler(commands=["slap"])
+def slap(message):
+    if len(message.text.split()) < 2:
+        bot.reply_to(message, "Использование: /slap @username")
+        return
+
+    bot.reply_to(
+        message,
+        f"🦶 {message.from_user.first_name} шлёпнул пятку {message.text.split()[1]} 😂"
+    )
+
+@bot.message_handler(commands=["steal"])
+def steal(message):
+    p = get_player(message.from_user)
+    value = random.randint(1,3)
+    p["foot"] += value
+
+    bot.reply_to(
+        message,
+        f"🕵️ Ты успешно украл {value}% пятки!\nТеперь у тебя {p['foot']}%"
+    )
+
+@bot.message_handler(commands=["ref"])
+def ref(message):
+    p = get_player(message.from_user)
+    bot.reply_to(
+        message,
+        f"🎁 Твоя рефералка:\nhttps://t.me/YourBot?start={p['ref']}"
+    )
+
+@bot.message_handler(commands=["top"])
+def top(message):
+    if not players:
+        bot.reply_to(message, "Пока никто не играл.")
+        return
+
+    rating = sorted(players.values(), key=lambda x: x["foot"], reverse=True)
+
+    text = "🏆 ТОП ПЯТОК\n\n"
+
+    for i, player in enumerate(rating[:10], 1):
+        text += f"{i}. {player['name']} — {player['foot']}%\n"
+
+    bot.reply_to(message, text)
+
+print("Бот запущен.")
+bot.infinity_polling()
