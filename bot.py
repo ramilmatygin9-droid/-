@@ -14,7 +14,7 @@ from aiogram.types import (
 )
 
 # Токен прописан напрямую для стабильного запуска
-TOKEN = "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE"
+TOKEN = "8838249295:AAHnv2uA-EAsO7xNOT3YTtFcldURdIqQwe0"
 ADMIN_ID = 8680515597
 
 PRODUCTS = {
