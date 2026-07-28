@@ -8,13 +8,13 @@ from aiogram.types import Message
 # Включаем логирование
 logging.basicConfig(level=logging.INFO)
 
-# Укажите ваш токен от BotFather
-TOKEN = "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE"
+# Ваш токен
+TOKEN = "8838249295:AAFxtwEj2X9jlisTQlJeUIWgpnJM1OCuUWg"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Баланс пользователей (для примера у всех стартовый баланс 1000 очков)
+# Баланс пользователей (стартовый баланс 1000 очков)
 user_balances = {}
 
 
@@ -22,7 +22,7 @@ user_balances = {}
 async def cmd_start(message: Message):
     user_id = message.from_user.id
     if user_id not in user_balances:
-        user_balances[user_id] = 1000  # Стартовый капитал
+        user_balances[user_id] = 1000
 
     await message.answer(
         "🃏 **Добро пожаловать в игру ДЖОКЕР!**\n\n"
@@ -51,7 +51,6 @@ async def play_joker(message: Message):
 
     parts = message.text.split()
 
-    # Проверяем, передал ли пользователь сумму ставки
     if len(parts) < 2 or not parts[1].isdigit():
         await message.answer(
             "⚠️ Пожалуйста, укажите сумму ставки правильно.\n"
@@ -75,11 +74,7 @@ async def play_joker(message: Message):
     # Списываем ставку на время розыгрыша
     user_balances[user_id] -= bet
 
-    # Игровая механика: генерируем случайный исход
-    # Шансы: 
-    # 10% — Джокер (х10 выигрыш)
-    # 40% — Обычная карта (возврат ставки х1)
-    # 50% — Мимо (проигрыш ставки)
+    # Шансы: 10% — Джокер (х10), 40% — Победа (х2), 50% — Проигрыш
     outcome = random.choices(
         ["joker", "win", "lose"], 
         weights=[10, 40, 50], 
@@ -98,7 +93,8 @@ async def play_joker(message: Message):
     elif outcome == "win":
         win_amount = bet * 2
         user_balances[user_id] += win_amount
-        await message.answer(f"🎴 Выпала старшая карта.\n"
+        await message.answer(
+            f"🎴 Выпала старшая карта.\n"
             f"👍 Вы выиграли х2: **+{win_amount} очков**.\n"
             f"💰 Баланс: {user_balances[user_id]} очков"
         )
