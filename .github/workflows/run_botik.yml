@@ -25,5 +25,3 @@ jobs:
 
       - name: Запуск бота
         run: python bot.py
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
