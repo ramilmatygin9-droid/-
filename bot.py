@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -14,11 +13,10 @@ from aiogram.types import (
     Message,
 )
 
-# Токен и ID администратора
-TOKEN = os.getenv("8904301984:AAFJb5NLkqTdzf1LtzTJ6kCD09khnbyAxCs", "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE")
+# Токен прописан напрямую, чтобы избежать проблем с GitHub Secrets
+TOKEN = "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE"
 ADMIN_ID = 8680515597
 
-# Список товаров
 PRODUCTS = {
     "item_1": {
         "name": "🚗 Эксклюзивная тойота",
@@ -37,7 +35,6 @@ class OrderState(StatesGroup):
 
 router = Router()
 
-# Постоянная клавиатура внизу чата
 def get_main_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[
@@ -47,18 +44,16 @@ def get_main_keyboard():
         resize_keyboard=True
     )
 
-# Команда /start
 @router.message(Command("start"))
 async def cmd_start(message: Message):
     await message.answer(
         f"👋 Привет, **{message.from_user.first_name}**!\n\n"
-        "Добро пожаловать в лучший магазин аккаунтов и машин **Car Parking Multiplayer**.\n"
+        "Добро пожаловать в магазин аккаунтов и машин **Car Parking Multiplayer**.\n"
         "Выберите нужное действие в меню ниже:",
         reply_markup=get_main_keyboard(),
         parse_mode="Markdown"
     )
 
-# Кнопка каталога из меню
 @router.message(F.text == "🛍 Каталог товаров")
 async def show_catalog(message: Message):
     keyboard_buttons = []
@@ -74,7 +69,6 @@ async def show_catalog(message: Message):
     markup = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
     await message.answer("🚗 **Доступные товары для покупки:**", reply_markup=markup, parse_mode="Markdown")
 
-# Кнопка информации
 @router.message(F.text == "ℹ️ Информация")
 async def show_info(message: Message):
     await message.answer(
@@ -87,12 +81,10 @@ async def show_info(message: Message):
         parse_mode="Markdown"
     )
 
-# Кнопка поддержки
 @router.message(F.text == "📞 Поддержка")
 async def show_support(message: Message):
     await message.answer("💬 Возникли вопросы? Напишите администратору: @Ramil")
 
-# Обработка выбора товара из каталога
 @router.callback_query(F.data.startswith("buy_"))
 async def process_purchase(callback: CallbackQuery, state: FSMContext):
     item_key = callback.data.split("_")[1]
@@ -125,14 +117,12 @@ async def process_purchase(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(payment_text, reply_markup=cancel_markup, parse_mode="Markdown")
     await callback.answer()
 
-# Отмена заказа
 @router.callback_query(F.data == "cancel_order")
 async def cancel_order(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.answer("❌ Заказ отменен.", reply_markup=get_main_keyboard())
     await callback.answer()
 
-# Получение чека от покупателя
 @router.message(OrderState.waiting_for_payment_proof)
 async def receive_payment_proof(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
