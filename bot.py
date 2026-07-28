@@ -1,206 +1,158 @@
-import random
 import telebot
+import random
+import json
+import time
+from telebot import types
 
-# Вставляем токен прямо в код, чтобы исключить ошибки с переменными окружения
 TOKEN = "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE"
 
 bot = telebot.TeleBot(TOKEN)
 
-# База игроков
-players = {}
-ref_codes = {}
-username_to_id = {}
+try:
+    with open("players.json", "r") as f:
+        players = json.load(f)
+except:
+    players = {}
+
+
+def save():
+    with open("players.json", "w") as f:
+        json.dump(players, f, indent=4)
 
 
 def get_player(user):
-  if user.username:
-    username_to_id[user.username.lower()] = user.id
+    uid = str(user.id)
 
-  if user.id not in players:
-    code = str(random.randint(100000, 999999))
-    while code in ref_codes:
-      code = str(random.randint(100000, 999999))
+    if uid not in players:
+        players[uid] = {
+            "name": user.first_name,
+            "coins": 0,
+            "level": 1,
+            "xp": 0,
+            "last_bonus": 0
+        }
+        save()
 
-    players[user.id] = {
-        "name": user.first_name,
-        "username": user.username,
-        "foot": 0,
-        "ref": code,
-    }
-    ref_codes[code] = user.id
-  else:
-    players[user.id]["name"] = user.first_name
-    if user.username:
-      players[user.id]["username"] = user.username
-      username_to_id[user.username.lower()] = user.id
-
-  return players[user.id]
+    return players[uid]
 
 
 @bot.message_handler(commands=["start"])
 def start(message):
-  user = message.from_user
-  p = get_player(user)
 
-  command_args = message.text.split()
-  if len(command_args) > 1:
-    ref_code = command_args[1]
-    if ref_code in ref_codes:
-      referrer_id = ref_codes[ref_code]
-      if referrer_id != user.id and referrer_id in players:
-        players[referrer_id]["foot"] += 10
+    get_player(message.from_user)
+
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+
+    kb.add(
+        types.KeyboardButton("🎮 Играть"),
+        types.KeyboardButton("👤 Профиль")
+    )
+
+    kb.add(
+        types.KeyboardButton("🎁 Бонус"),
+        types.KeyboardButton("🏆 Топ")
+    )
+
+    bot.send_message(
+        message.chat.id,
+        "🔥 Добро пожаловать в игру!\n\nЗарабатывай монеты и прокачивай уровень!",
+        reply_markup=kb
+    )
+
+
+@bot.message_handler(func=lambda m: m.text=="🎮 Играть")
+def game(message):
+
+    p = get_player(message.from_user)
+
+    coins = random.randint(10,50)
+    xp = random.randint(5,20)
+
+    p["coins"] += coins
+    p["xp"] += xp
+
+
+    if p["xp"] >= p["level"]*100:
+        p["level"] += 1
+        p["xp"] = 0
         bot.send_message(
-            referrer_id,
-            f"🎉 По вашей реферальной ссылке зарегистрировался"
-            f" **{user.first_name}**!\n🦶 Ваша пятка выросла на **10%**!",
-            parse_mode="Markdown",
+            message.chat.id,
+            f"🎉 Новый уровень! Теперь уровень {p['level']}"
         )
 
-  bot.reply_to(
-      message,
-      f"""👋 Привет, {user.first_name}!
+    save()
 
-🌱 Выращивай пятку и соревнуйся с друзьями!
-
-Команды:
-/grow — вырастить пятку (+5%)
-/foot — узнать размер своей пятки
-/kiss @username — поцеловать пятку
-/slap @username — шлёпнуть пятку
-/steal @username — украсть проценты пятки
-/ref — твоя реферальная ссылка (+10% за друга)
-/top — таблица лидеров""",
-  )
-
-
-@bot.message_handler(commands=["grow"])
-def grow(message):
-  p = get_player(message.from_user)
-  p["foot"] += 5
-  bot.reply_to(message, f"🌱 Ты вырастил пятку!\nТеперь она {p['foot']}% 🦶")
-
-
-@bot.message_handler(commands=["foot"])
-def foot(message):
-  p = get_player(message.from_user)
-  bot.reply_to(message, f"👣 Размер твоей пятки: {p['foot']}%")
-
-
-@bot.message_handler(commands=["kiss"])
-def kiss(message):
-  args = message.text.split()
-  if len(args) < 2:
-    bot.reply_to(message, "Использование: /kiss @username")
-    return
-
-  target_username = args[1].replace("@", "").lower()
-  if target_username not in username_to_id:
-    bot.reply_to(
-        message,
-        "❌ Этот пользователь еще не заходил в бота или у него нет юзернейма.",
+    bot.send_message(
+        message.chat.id,
+        f"⚔️ Ты сыграл!\n\n+{coins} монет\n+{xp} опыта"
     )
-    return
-
-  target_id = username_to_id[target_username]
-  target_player = players.get(target_id)
-
-  bot.reply_to(
-      message,
-      f"💋 {message.from_user.first_name} нежно поцеловал пятку пользователя"
-      f" @{target_username} ({target_player['name']}) ❤️",
-  )
 
 
-@bot.message_handler(commands=["slap"])
-def slap(message):
-  args = message.text.split()
-  if len(args) < 2:
-    bot.reply_to(message, "Использование: /slap @username")
-    return
+@bot.message_handler(func=lambda m: m.text=="👤 Профиль")
+def profile(message):
 
-  target_username = args[1].replace("@", "").lower()
-  if target_username not in username_to_id:
-    bot.reply_to(
-        message,
-        "❌ Этот пользователь еще не заходил в бота или у него нет юзернейма.",
+    p = get_player(message.from_user)
+
+    bot.send_message(
+        message.chat.id,
+        f"""
+👤 Профиль
+
+Игрок: {p['name']}
+💰 Монеты: {p['coins']}
+⭐ Уровень: {p['level']}
+✨ Опыт: {p['xp']}
+"""
     )
-    return
-
-  target_id = username_to_id[target_username]
-  target_player = players.get(target_id)
-
-  bot.reply_to(
-      message,
-      f"🦶 {message.from_user.first_name} смачно шлёпнул пятку"
-      f" @{target_username} ({target_player['name']}) 😂",
-  )
 
 
-@bot.message_handler(commands=["steal"])
-def steal(message):
-  args = message.text.split()
-  if len(args) < 2:
-    bot.reply_to(message, "Использование: /steal @username")
-    return
+@bot.message_handler(func=lambda m: m.text=="🎁 Бонус")
+def bonus(message):
 
-  target_username = args[1].replace("@", "").lower()
-  if target_username not in username_to_id:
-    bot.reply_to(
-        message, "❌ Жертва не найдена в базе бота (нужно знать @username)."
+    p = get_player(message.from_user)
+
+    now = time.time()
+
+    if now - p["last_bonus"] < 86400:
+        bot.send_message(
+            message.chat.id,
+            "⏳ Бонус уже получен. Приходи завтра!"
+        )
+        return
+
+    reward = 500
+
+    p["coins"] += reward
+    p["last_bonus"] = now
+
+    save()
+
+    bot.send_message(
+        message.chat.id,
+        f"🎁 Ты получил {reward} монет!"
     )
-    return
-
-  target_id = username_to_id[target_username]
-  if target_id == message.from_user.id:
-    bot.reply_to(message, "🤔 Сам у себя воровать пятку бессмысленно!")
-    return
-
-  p = get_player(message.from_user)
-  target_p = players[target_id]
-
-  if target_p["foot"] < 3:
-    bot.reply_to(
-        message,
-        f"❌ У @{target_username} слишком маленькая пятка, нечего воровать!",
-    )
-    return
-
-  value = random.randint(1, 3)
-  target_p["foot"] -= value
-  p["foot"] += value
-
-  bot.reply_to(
-      message,
-      f"🕵️ Ты успешно украл {value}% пятки у @{target_username}!\n📉 У него"
-      f" осталось: {target_p['foot']}%\n📈 Теперь у тебя: {p['foot']}%",
-  )
 
 
-@bot.message_handler(commands=["ref"])
-def ref(message):
-  p = get_player(message.from_user)
-  bot_info = bot.get_me()
-  bot.reply_to(
-      message,
-      f"🎁 Твоя реферальная ссылка:\nhttps://t.me/{bot_info.username}?start={p['ref']}\n\nПриглашай друзей и получай **+10%** к пятке за каждого!",
-  )
-
-
-@bot.message_handler(commands=["top"])
+@bot.message_handler(func=lambda m: m.text=="🏆 Топ")
 def top(message):
-  if not players:
-    bot.reply_to(message, "Пока никто не играл.")
-    return
 
-  rating = sorted(players.values(), key=lambda x: x["foot"], reverse=True)
-
-  text = "🏆 ТОП ПЯТОК\n\n"
-  for i, player in enumerate(rating[:10], 1):
-    medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-    text += f"{medal} {player['name']} — {player['foot']}%\n"
-
-  bot.reply_to(message, text)
+    result = sorted(
+        players.values(),
+        key=lambda x:x["coins"],
+        reverse=True
+    )[:10]
 
 
-print("Бот успешно запущен и ждет команды...")
+    text="🏆 ТОП ИГРОКОВ\n\n"
+
+    for i,p in enumerate(result,1):
+        text += f"{i}. {p['name']} — {p['coins']} 💰\n"
+
+
+    bot.send_message(
+        message.chat.id,
+        text
+    )
+
+
 bot.infinity_polling()
