@@ -82,11 +82,10 @@ async def show_info(message: Message):
 
 @router.message(F.text == "📞 Поддержка")
 async def show_support(message: Message):
-    await message.answer("💬 Возникли вопросы? Напишите администратору: @Ramil")
+    await message.answer("💬 Возникли вопросы? Напишите администратору: @Z_L_0_l")
 
 @router.callback_query(F.data.startswith("buy_"))
 async def process_purchase(callback: CallbackQuery, state: FSMContext):
-    # Безопасно извлекаем ключ товара (все, что идет после "buy_")
     item_key = callback.data.replace("buy_", "", 1)
     product = PRODUCTS.get(item_key)
 
@@ -128,15 +127,25 @@ async def receive_payment_proof(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
     item_name = data.get("item_name")
     item_price = data.get("item_price")
+    user_id = message.from_user.id
 
     admin_text = (
         f"🚨 **Новый чек по заказу!**\n\n"
-        f"👤 Покупатель: @{message.from_user.username} (ID: `{message.from_user.id}`)\n"
+        f"👤 Покупатель: @{message.from_user.username} (ID: `{user_id}`)\n"
         f"📦 Товар: {item_name}\n"
         f"💵 Сумма: {item_price} руб."
     )
 
-    await bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
+    admin_markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Оплата прошла", callback_data=f"accept_{user_id}"),
+                InlineKeyboardButton(text="❌ Отклонить", callback_data=f"reject_{user_id}")
+            ]
+        ]
+    )
+
+    await bot.send_message(ADMIN_ID, admin_text, reply_markup=admin_markup, parse_mode="Markdown")
     await message.forward(ADMIN_ID)
 
     await message.answer(
@@ -145,6 +154,40 @@ async def receive_payment_proof(message: Message, state: FSMContext, bot: Bot):
         parse_mode="Markdown"
     )
     await state.clear()
+
+@router.callback_query(F.data.startswith("accept_"))
+async def accept_payment(callback: CallbackQuery, bot: Bot):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("У вас нет прав!", show_alert=True)
+        return
+
+    target_user_id = int(callback.data.split("_")[1])
+
+    await bot.send_message(
+        target_user_id,
+        "🎉 **Оплата подтверждена администратором!**\nАдминистратор (@Z_L_0_l) скоро свяжется с вами для выдачи товара.",
+        parse_mode="Markdown"
+    )
+
+    await callback.message.edit_text(callback.message.text + "\n\n**STATUS: ✅ Оплата подтверждена**", parse_mode="Markdown")
+    await callback.answer("Оплата успешно подтверждена!")
+
+@router.callback_query(F.data.startswith("reject_"))
+async def reject_payment(callback: CallbackQuery, bot: Bot):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("У вас нет прав!", show_alert=True)
+        return
+
+    target_user_id = int(callback.data.split("_")[1])
+
+    await bot.send_message(
+        target_user_id,
+        "❌ **Оплата была отклонена администратором.**\nЕсли произошла ошибка, напишите @Z_L_0_l.",
+        parse_mode="Markdown"
+    )
+
+    await callback.message.edit_text(callback.message.text + "\n\n**STATUS: ❌ Оплата отклонена**", parse_mode="Markdown")
+    await callback.answer("Оплата отклонена.")
 
 async def main():
     logging.basicConfig(level=logging.INFO)
