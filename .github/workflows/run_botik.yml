@@ -1,4 +1,4 @@
-name: Run Bot
+name: Run Telegram Bot
 
 on:
   push:
@@ -26,6 +26,4 @@ jobs:
       - name: Запуск бота
         run: python bot.py
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
