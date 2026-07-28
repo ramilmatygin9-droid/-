@@ -13,7 +13,7 @@ from aiogram.types import (
     Message,
 )
 
-# Токен прописан напрямую, чтобы избежать проблем с GitHub Secrets
+# Токен прописан напрямую для стабильного запуска
 TOKEN = "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE"
 ADMIN_ID = 8680515597
 
@@ -153,7 +153,7 @@ async def main():
     dp.include_router(router)
 
     await bot.delete_webhook(drop_pending_updates=True)
-    print("Бот запущен и готов к работе!")
+    print("Бот успешно запущен!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
