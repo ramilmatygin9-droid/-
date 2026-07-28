@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -11,8 +12,8 @@ from aiogram.types import (
     Message,
 )
 
-# Настройки
-TOKEN = "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE"  # Токен вашего основного бота-магазина
+# Настройки (токен берется из секретов GitHub)
+TOKEN = os.getenv("8838249295:AAFxtwEj2X9jlisTQlJeUIWgpnJM1OCuUWg") 
 ADMIN_ID = 8680515597  # Ваш Telegram ID для получения уведомлений о заказах
 
 # Данные о товарах
@@ -23,7 +24,7 @@ PRODUCTS = {
         "desc": "Навсегда.",
     },
     "item_2": {
-        "name": "Ford F650)",
+        "name": "Ford F650",
         "price": 21,
         "desc": "Навсегда.",
     },
@@ -32,7 +33,6 @@ PRODUCTS = {
 # Состояния для оформления заказа
 class OrderState(StatesGroup):
     waiting_for_payment_proof = State()
-
 
 router = Router()
 
@@ -53,7 +53,7 @@ async def cmd_start(message: Message):
     markup = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
 
     await message.answer(
-        "👋 **Добро пожаловать в магазин цифровых товаров!**\n\n"
+        "👋 **Добро пожаловать в магазин Car Parking!**\n\n"
         "Выберите интересующий вас товар из списка ниже:",
         reply_markup=markup,
         parse_mode="Markdown",
@@ -69,11 +69,9 @@ async def process_purchase(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Товар не найден!", show_alert=True)
         return
 
-    # Сохраняем выбранный товар в память сессии
     await state.update_data(item_name=product["name"], item_price=product["price"])
     await state.set_state(OrderState.waiting_for_payment_proof)
 
-    # Реквизиты для оплаты СБП / Карта
     payment_text = (
         f"🛒 Вы выбрали: **{product['name']}**\n"
         f"💰 Стоимость: **{product['price']} руб.**\n\n"
@@ -81,7 +79,7 @@ async def process_purchase(callback: CallbackQuery, state: FSMContext):
         f"• Банк: Сбер / Т-Банк\n"
         f"• Номер карты: `2200 7021 6141 6974`\n"
         f"• Номер телефона (СБП): `+7 (913) 517-65-93` (Получатель: Рамиль М.)\n\n"
-        f"⚠️ **Важно:** после оплаты отправьте в этот чат скриншот чека или текстовое подтверждение (например, последние 4 цифры карты или время перевода), чтобы мы могли проверить платеж."
+        f"⚠️ **Важно:** после оплаты отправьте в этот чат скриншот чека или текстовое подтверждение."
     )
 
     cancel_markup = InlineKeyboardMarkup(
@@ -107,7 +105,6 @@ async def receive_payment_proof(message: Message, state: FSMContext, bot: Bot):
     item_name = data.get("item_name")
     item_price = data.get("item_price")
 
-    # Формируем сообщение для администратора
     admin_text = (
         f"🚨 **Новый заказ!**\n\n"
         f"👤 Покупатель: @{message.from_user.username} (ID: `{message.from_user.id}`)\n"
@@ -116,7 +113,6 @@ async def receive_payment_proof(message: Message, state: FSMContext, bot: Bot):
         f"Проверьте поступление средств на карту/СБП!"
     )
 
-    # Пересылаем доказательство оплаты (чек/скриншот/текст) админу
     await bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
     await message.forward(ADMIN_ID)
 
@@ -129,6 +125,10 @@ async def receive_payment_proof(message: Message, state: FSMContext, bot: Bot):
 
 # Запуск бота
 async def main():
+    if not TOKEN:
+        print("Ошибка: Токен бота не задан в переменных окружения!")
+        return
+
     logging.basicConfig(level=logging.INFO)
     bot = Bot(token=TOKEN)
     dp = Dispatcher()
