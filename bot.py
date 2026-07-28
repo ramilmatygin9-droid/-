@@ -9,36 +9,58 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
     Message,
 )
 
-# Настройки
-TOKEN = os.getenv("8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE")  # Токен берется из секретов GitHub
-ADMIN_ID = 8680515597  # Твой Telegram ID
+# Токен и ID администратора
+TOKEN = os.getenv("8904301984:AAGKphuEFPU75KGhGWZ-XcNOp9RqCt_wnqY", "8838249295:AAGR3CgnAti-xZwRzpe0duvhdrSMmfw-HaE")
+ADMIN_ID = 8680515597
 
-# Данные о товарах
+# Список товаров
 PRODUCTS = {
     "item_1": {
-        "name": "Эксклюзивная тойота",
+        "name": "🚗 Эксклюзивная тойота",
         "price": 12,
-        "desc": "Навсегда.",
+        "desc": "Тюнинг, фулл прокачка. Передача через сделку в игре.",
     },
     "item_2": {
-        "name": "Ford F650",
+        "name": "🚙 Ford F650",
         "price": 21,
-        "desc": "Навсегда.",
+        "desc": "Огромный пикап, эксклюзивный цвет.",
     },
 }
 
-# Состояния для оформления заказа
 class OrderState(StatesGroup):
     waiting_for_payment_proof = State()
 
 router = Router()
 
-# Главное меню / Каталог товаров
+# Постоянная клавиатура внизу чата
+def get_main_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🛍 Каталог товаров"), KeyboardButton(text="ℹ️ Информация")],
+            [KeyboardButton(text="📞 Поддержка")]
+        ],
+        resize_keyboard=True
+    )
+
+# Команда /start
 @router.message(Command("start"))
 async def cmd_start(message: Message):
+    await message.answer(
+        f"👋 Привет, **{message.from_user.first_name}**!\n\n"
+        "Добро пожаловать в лучший магазин аккаунтов и машин **Car Parking Multiplayer**.\n"
+        "Выберите нужное действие в меню ниже:",
+        reply_markup=get_main_keyboard(),
+        parse_mode="Markdown"
+    )
+
+# Кнопка каталога из меню
+@router.message(F.text == "🛍 Каталог товаров")
+async def show_catalog(message: Message):
     keyboard_buttons = []
     for key, product in PRODUCTS.items():
         keyboard_buttons.append(
@@ -49,17 +71,28 @@ async def cmd_start(message: Message):
                 )
             ]
         )
-
     markup = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+    await message.answer("🚗 **Доступные товары для покупки:**", reply_markup=markup, parse_mode="Markdown")
 
+# Кнопка информации
+@router.message(F.text == "ℹ️ Информация")
+async def show_info(message: Message):
     await message.answer(
-        "👋 **Добро пожаловать в магазин Car Parking!**\n\n"
-        "Выберите интересующий вас товар из списка ниже:",
-        reply_markup=markup,
-        parse_mode="Markdown",
+        "📌 **Как купить товар?**\n\n"
+        "1. Перейдите в «🛍 Каталог товаров».\n"
+        "2. Выберите нужную машину.\n"
+        "3. Оплатите по реквизитам СБП или карты.\n"
+        "4. Отправьте скриншот чека в этот чат.\n"
+        "5. Администратор проверит платеж и выдаст товар!",
+        parse_mode="Markdown"
     )
 
-# Обработка выбора товара
+# Кнопка поддержки
+@router.message(F.text == "📞 Поддержка")
+async def show_support(message: Message):
+    await message.answer("💬 Возникли вопросы? Напишите администратору: @Ramil")
+
+# Обработка выбора товара из каталога
 @router.callback_query(F.data.startswith("buy_"))
 async def process_purchase(callback: CallbackQuery, state: FSMContext):
     item_key = callback.data.split("_")[1]
@@ -69,77 +102,68 @@ async def process_purchase(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Товар не найден!", show_alert=True)
         return
 
-    # Сохраняем выбранный товар в память сессии
     await state.update_data(item_name=product["name"], item_price=product["price"])
     await state.set_state(OrderState.waiting_for_payment_proof)
 
-    # Реквизиты для оплаты СБП / Карта
     payment_text = (
         f"🛒 Вы выбрали: **{product['name']}**\n"
+        f"📝 Описание: {product['desc']}\n"
         f"💰 Стоимость: **{product['price']} руб.**\n\n"
-        f"💳 **Способ оплаты (СБП / Перевод на карту):**\n"
+        f"💳 **Реквизиты для оплаты (СБП / Карта):**\n"
         f"• Банк: Сбер / Т-Банк\n"
         f"• Номер карты: `2200 7021 6141 6974`\n"
-        f"• Номер телефона (СБП): `+7 (913) 517-65-93` (Получатель: Рамиль М.)\n\n"
-        f"⚠️ **Важно:** после оплаты отправьте в этот чат скриншот чека или текстовое подтверждение, чтобы мы могли проверить платеж."
+        f"• СБП телефон: `+7 (913) 517-65-93` (Рамиль М.)\n\n"
+        f"⚠️ **После оплаты отправьте сюда скриншот чека или фото перевода!**"
     )
 
     cancel_markup = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="❌ Отменить", callback_data="cancel_order")]
+            [InlineKeyboardButton(text="❌ Отменить заказ", callback_data="cancel_order")]
         ]
     )
 
-    await callback.message.edit_text(payment_text, reply_markup=cancel_markup, parse_mode="Markdown")
+    await callback.message.answer(payment_text, reply_markup=cancel_markup, parse_mode="Markdown")
     await callback.answer()
 
 # Отмена заказа
 @router.callback_query(F.data == "cancel_order")
 async def cancel_order(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("❌ Заказ отменен. Введите /start для возврата в каталог.")
+    await callback.message.answer("❌ Заказ отменен.", reply_markup=get_main_keyboard())
     await callback.answer()
 
-# Получение подтверждения оплаты от пользователя
+# Получение чека от покупателя
 @router.message(OrderState.waiting_for_payment_proof)
 async def receive_payment_proof(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
     item_name = data.get("item_name")
     item_price = data.get("item_price")
 
-    # Формируем сообщение для администратора
     admin_text = (
-        f"🚨 **Новый заказ!**\n\n"
+        f"🚨 **Новый чек по заказу!**\n\n"
         f"👤 Покупатель: @{message.from_user.username} (ID: `{message.from_user.id}`)\n"
         f"📦 Товар: {item_name}\n"
-        f"💵 Сумма: {item_price} руб.\n\n"
-        f"Проверьте поступление средств на карту/СБП!"
+        f"💵 Сумма: {item_price} руб."
     )
 
-    # Пересылаем доказательство оплаты (чек/скриншот/текст) админу
     await bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
     await message.forward(ADMIN_ID)
 
     await message.answer(
-        "✅ **Спасибо!** Ваш платеж проверяется администратором.\n"
-        "Как только оплата поступит, товар будет отправлен вам в этот чат.",
-        parse_mode="Markdown",
+        "✅ **Чек отправлен администратору!**\nОжидайте проверки, скоро с вами свяжутся.",
+        reply_markup=get_main_keyboard(),
+        parse_mode="Markdown"
     )
     await state.clear()
 
-# Запуск бота
 async def main():
-    if not TOKEN:
-        print("Ошибка: Токен бота не найден! Проверьте секреты в GitHub Actions.")
-        return
-
     logging.basicConfig(level=logging.INFO)
     bot = Bot(token=TOKEN)
     dp = Dispatcher()
     dp.include_router(router)
 
     await bot.delete_webhook(drop_pending_updates=True)
-    print("Бот успешно запущен!")
+    print("Бот запущен и готов к работе!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
